@@ -4,6 +4,7 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import androidx.lifecycle.MutableLiveData
+import com.mysticraccoon.playground.databinding.ActivityMainBinding
 import kotlinx.coroutines.*
 import java.io.File
 
@@ -11,40 +12,32 @@ class MainActivity : AppCompatActivity() {
 
     val TAG = "MainActivity"
 
+    private lateinit var binding: ActivityMainBinding
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        GlobalScope.launch {
-            delay(1000L)
-            //delay is a suspend function
-            //They can only be executed inside another suspend function or inside a coroutine
+
+        //Depending on what our coroutine should do, we should pass a different dispatcher
+        GlobalScope.launch(Dispatchers.IO) {
+            Log.d(TAG, "Starting coroutine on thread ${Thread.currentThread().name}")
+            //we can also create our new context
+            //newSingleThreadContext("MyThread")
+
+            //but the most useful is that we can switch between coroutine contexts
+            val answer = doNetworkCall()
+            withContext(Dispatchers.Main){
+                Log.d(TAG, "Setting text on thread ${Thread.currentThread().name}")
+                binding.dummyText.text = answer
+            }
         }
-        //Throws error
-        //delay(1000L)
 
-        //Error
-        //doNetworkCall()
-
-        GlobalScope.launch {
-            val networkCallAnswer = doNetworkCall()
-            val networkCallAnswer2 = doNetworkCall2()
-            Log.d(TAG, networkCallAnswer)
-            Log.d(TAG, networkCallAnswer2)
-            //Because these two delays were inside the same coroutine, they will influence each other
-            //In the end, this code will take 6 seconds to print the string instead of only 3
-        }
     }
 
     suspend fun doNetworkCall(): String{
         delay(3000L)
         return "This is the answer"
     }
-
-    suspend fun doNetworkCall2(): String{
-        delay(3000L)
-        return "This is the answer 2"
-    }
-
 
 }
