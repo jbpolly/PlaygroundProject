@@ -18,46 +18,103 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-//        Log.d(TAG, "Before runBlocking")
-//        runBlocking {
-//            Log.d(TAG, "Start of runBlocking")
-//            //starts a new coroutine in the main thread
-//            delay(5000L)
-//            Log.d(TAG, "End of runBlocking")
-//        }
-//        Log.d(TAG, "After runBlocking")
+        //simpleJobJoin()
+        //simpleJobCancellation()
+        //intensiveJobCancellation()
+        intensiveCalculationWithTimeout()
 
 
-        Log.d(TAG, "Before runBlocking")
-        runBlocking {
-            launch(Dispatchers.IO) {
-                //This one will actually run asynchronously
-                delay(3000L)
-                Log.d(TAG, "Finished IO coroutine 1")
+    }
+
+    fun simpleJobJoin() {
+        //When we launch a coroutine, it returns a job which we can save in a variable
+        val job = GlobalScope.launch(Dispatchers.Default) {
+            repeat(5) {
+                Log.d(TAG, "Coroutine is still working")
+                delay(1000)
             }
-
-            launch(Dispatchers.IO) {
-                //This one will actually run asynchronously
-                delay(3000L)
-                Log.d(TAG, "Finished IO coroutine 2")
-            }
-
-            Log.d(TAG, "Start of runBlocking")
-            //starts a new coroutine in the main thread
-            delay(5000L)
-            Log.d(TAG, "End of runBlocking")
         }
-        Log.d(TAG, "After runBlocking")
 
-        //The difference is that the one below will not block the main thread. And the one above will
-        GlobalScope.launch(Dispatchers.Main) {  }
+        //now we can wait for it to finish
+        runBlocking {
+            job.join()
+            Log.d(TAG, "Main thread is continuing...")
+        }
+    }
 
-        //The runblocking can be useful if you do not want coroutine behavior but still want to call a suspend fun on the main thread
+    fun simpleJobCancellation() {
+        // we can also cancel it
 
-        //Another functionality is for testing with JUnit
-        //Use it to also quickly play around with coroutines
+        val job = GlobalScope.launch(Dispatchers.Default) {
+            repeat(5) {
+                Log.d(TAG, "Coroutine is still working")
+                delay(1000)
+            }
+        }
 
+        //now we can wait for it to finish
+        runBlocking {
+            //In this example we don't wait for the coroutine to join
+            //we just cancel it after 2 seconds
+            //so we will not see the 5 repeats of the code executed above
+            delay(2000L)
+            job.cancel()
+            Log.d(TAG, "Main thread is continuing...")
+        }
+    }
 
+    fun intensiveJobCancellation() {
+        //======================================================
+        //cancelling a coroutine may not be always as easy as in the example above
+        //this is because cancellation is cooperative
+        //it needs to be enough time to tell the coroutine it has been cancelled
+        //in the example below there was lots of delays which pauses the coroutine and makes it easier to signalize to it that the coroutine has been cancelled
+        //but if it had an intensive computation it would not be as easy
+        //check the example below
+
+        val job = GlobalScope.launch(Dispatchers.Default) {
+            Log.d(TAG, "Starting long running calculation")
+            for (i in 30..43) {
+                //we need to check manually to see if coroutine is still active
+                if(isActive){
+                    Log.d(TAG, "Result for i = $i: ${fib(i)}")
+                }
+            }
+            Log.d(TAG, "Ending long running calculation")
+
+        }
+
+        runBlocking {
+            delay(2000L)
+            job.cancel()
+            Log.d(TAG, "Canceled job!")
+        }
+
+    }
+
+    fun intensiveCalculationWithTimeout(){
+        //A real life situation where we may want to cancel a coroutine is a timeout for example
+        //we can use the withTimeout function for that
+        val job = GlobalScope.launch(Dispatchers.Default) {
+            Log.d(TAG, "Starting long running calculation")
+            withTimeout(2000L){
+                for (i in 30..43) {
+                    //we need to check manually to see if coroutine is still active
+                    if(isActive){
+                        Log.d(TAG, "Result for i = $i: ${fib(i)}")
+                    }
+                }
+            }
+            Log.d(TAG, "Ending long running calculation")
+        }
+        //we do not need to cancel manually anymore
+
+    }
+
+    fun fib(n: Int): Long {
+        return if (n == 0) 0
+        else if (n == 1) 1
+        else fib(n - 1) + fib(n - 2)
     }
 
 }
