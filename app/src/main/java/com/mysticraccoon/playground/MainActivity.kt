@@ -2,11 +2,13 @@ package com.mysticraccoon.playground
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.provider.Settings.Global
 import android.util.Log
 import androidx.lifecycle.MutableLiveData
 import com.mysticraccoon.playground.databinding.ActivityMainBinding
 import kotlinx.coroutines.*
 import java.io.File
+import kotlin.system.measureTimeMillis
 
 class MainActivity : AppCompatActivity() {
 
@@ -18,103 +20,94 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        //simpleJobJoin()
-        //simpleJobCancellation()
-        //intensiveJobCancellation()
-        intensiveCalculationWithTimeout()
-
+        //executeCallsSequential()
+        //executeCallsParallel()
+        //executeCallsParallelWithAsync()
+        executeParallelWithWaitAll()
 
     }
 
-    fun simpleJobJoin() {
-        //When we launch a coroutine, it returns a job which we can save in a variable
-        val job = GlobalScope.launch(Dispatchers.Default) {
-            repeat(5) {
-                Log.d(TAG, "Coroutine is still working")
-                delay(1000)
+    fun executeParallelWithWaitAll(){
+        GlobalScope.launch(Dispatchers.IO) {
+            Log.d(TAG, "Executing parent coroutine on thread ${Thread.currentThread().name}")
+            val time = measureTimeMillis {
+                val deferreds = listOf(     // fetch two docs at the same time
+                    async { networkCall1() },  // async returns a result for the first doc
+                    async { networkCall2() }   // async returns a result for the second doc
+                )
+                val answers = deferreds.awaitAll()
+                Log.d(TAG, "Answers are: ${answers.joinToString("|")}")
+
             }
-        }
-
-        //now we can wait for it to finish
-        runBlocking {
-            job.join()
-            Log.d(TAG, "Main thread is continuing...")
+            //It will take 6 seconds until the strings are displayed on this case
+            //Because they will be sequential
+            Log.d(TAG, "Requests tooke $time ms")
         }
     }
 
-    fun simpleJobCancellation() {
-        // we can also cancel it
-
-        val job = GlobalScope.launch(Dispatchers.Default) {
-            repeat(5) {
-                Log.d(TAG, "Coroutine is still working")
-                delay(1000)
+    fun executeCallsParallelWithAsync(){
+        //async returns a deferred instead of a job
+        GlobalScope.launch(Dispatchers.IO) {
+            Log.d(TAG, "Executing parent coroutine on thread ${Thread.currentThread().name}")
+            val time = measureTimeMillis {
+                var answer1 = async { networkCall1() }
+                var answer2 = async { networkCall2() }
+                Log.d(TAG, "Answer 1 is ${answer1.await()}")
+                Log.d(TAG, "Answer 2 is ${answer2.await()}")
             }
-        }
-
-        //now we can wait for it to finish
-        runBlocking {
-            //In this example we don't wait for the coroutine to join
-            //we just cancel it after 2 seconds
-            //so we will not see the 5 repeats of the code executed above
-            delay(2000L)
-            job.cancel()
-            Log.d(TAG, "Main thread is continuing...")
+            //It will take 6 seconds until the strings are displayed on this case
+            //Because they will be sequential
+            Log.d(TAG, "Requests tooke $time ms")
         }
     }
 
-    fun intensiveJobCancellation() {
-        //======================================================
-        //cancelling a coroutine may not be always as easy as in the example above
-        //this is because cancellation is cooperative
-        //it needs to be enough time to tell the coroutine it has been cancelled
-        //in the example below there was lots of delays which pauses the coroutine and makes it easier to signalize to it that the coroutine has been cancelled
-        //but if it had an intensive computation it would not be as easy
-        //check the example below
-
-        val job = GlobalScope.launch(Dispatchers.Default) {
-            Log.d(TAG, "Starting long running calculation")
-            for (i in 30..43) {
-                //we need to check manually to see if coroutine is still active
-                if(isActive){
-                    Log.d(TAG, "Result for i = $i: ${fib(i)}")
-                }
+    fun executeCallsParallel(){
+        GlobalScope.launch(Dispatchers.IO) {
+            Log.d(TAG, "Executing parent coroutine on thread ${Thread.currentThread().name}")
+            val time = measureTimeMillis {
+                var answer1: String? = null
+                var answer2: String? = null
+                val job1 = launch { answer1 = networkCall1() }
+                val job2 = launch { answer2 = networkCall2() }
+                //join to wait for answers or we would print null values
+                job1.join()
+                job2.join()
+                Log.d(TAG, "Answer 1 is $answer1")
+                Log.d(TAG, "Answer 2 is $answer2")
             }
-            Log.d(TAG, "Ending long running calculation")
-
+            //It will take 6 seconds until the strings are displayed on this case
+            //Because they will be sequential
+            Log.d(TAG, "Requests tooke $time ms")
         }
-
-        runBlocking {
-            delay(2000L)
-            job.cancel()
-            Log.d(TAG, "Canceled job!")
-        }
-
     }
 
-    fun intensiveCalculationWithTimeout(){
-        //A real life situation where we may want to cancel a coroutine is a timeout for example
-        //we can use the withTimeout function for that
-        val job = GlobalScope.launch(Dispatchers.Default) {
-            Log.d(TAG, "Starting long running calculation")
-            withTimeout(2000L){
-                for (i in 30..43) {
-                    //we need to check manually to see if coroutine is still active
-                    if(isActive){
-                        Log.d(TAG, "Result for i = $i: ${fib(i)}")
-                    }
-                }
+    fun executeCallsSequential(){
+        //is we have several suspend functions and execute them in the same coroutine they are sequential by default
+        //if we want to make them parallel we can use async or launches inside
+        GlobalScope.launch(Dispatchers.IO) {
+            Log.d(TAG, "Executing parent coroutine on thread ${Thread.currentThread().name}")
+            val time = measureTimeMillis {
+                val answer1 = networkCall1()
+                val answer2 = networkCall2()
+                Log.d(TAG, "Answer 1 is $answer1")
+                Log.d(TAG, "Answer 2 is $answer2")
             }
-            Log.d(TAG, "Ending long running calculation")
+            //It will take 6 seconds until the strings are displayed on this case
+            //Because they will be sequential
+            Log.d(TAG, "Requests tooke $time ms")
         }
-        //we do not need to cancel manually anymore
-
     }
 
-    fun fib(n: Int): Long {
-        return if (n == 0) 0
-        else if (n == 1) 1
-        else fib(n - 1) + fib(n - 2)
+    suspend fun networkCall1(): String{
+        Log.d(TAG, "Executing network call 1 on thread ${Thread.currentThread().name}")
+        delay(3000L)
+        return "Answer 1"
+    }
+
+    suspend fun networkCall2(): String{
+        Log.d(TAG, "Executing network call 2 on thread ${Thread.currentThread().name}")
+        delay(3000L)
+        return "Answer 2"
     }
 
 }
