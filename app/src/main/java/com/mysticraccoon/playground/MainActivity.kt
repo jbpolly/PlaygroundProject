@@ -18,26 +18,46 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+//        Log.d(TAG, "Before runBlocking")
+//        runBlocking {
+//            Log.d(TAG, "Start of runBlocking")
+//            //starts a new coroutine in the main thread
+//            delay(5000L)
+//            Log.d(TAG, "End of runBlocking")
+//        }
+//        Log.d(TAG, "After runBlocking")
 
-        //Depending on what our coroutine should do, we should pass a different dispatcher
-        GlobalScope.launch(Dispatchers.IO) {
-            Log.d(TAG, "Starting coroutine on thread ${Thread.currentThread().name}")
-            //we can also create our new context
-            //newSingleThreadContext("MyThread")
 
-            //but the most useful is that we can switch between coroutine contexts
-            val answer = doNetworkCall()
-            withContext(Dispatchers.Main){
-                Log.d(TAG, "Setting text on thread ${Thread.currentThread().name}")
-                binding.dummyText.text = answer
+        Log.d(TAG, "Before runBlocking")
+        runBlocking {
+            launch(Dispatchers.IO) {
+                //This one will actually run asynchronously
+                delay(3000L)
+                Log.d(TAG, "Finished IO coroutine 1")
             }
+
+            launch(Dispatchers.IO) {
+                //This one will actually run asynchronously
+                delay(3000L)
+                Log.d(TAG, "Finished IO coroutine 2")
+            }
+
+            Log.d(TAG, "Start of runBlocking")
+            //starts a new coroutine in the main thread
+            delay(5000L)
+            Log.d(TAG, "End of runBlocking")
         }
+        Log.d(TAG, "After runBlocking")
 
-    }
+        //The difference is that the one below will not block the main thread. And the one above will
+        GlobalScope.launch(Dispatchers.Main) {  }
 
-    suspend fun doNetworkCall(): String{
-        delay(3000L)
-        return "This is the answer"
+        //The runblocking can be useful if you do not want coroutine behavior but still want to call a suspend fun on the main thread
+
+        //Another functionality is for testing with JUnit
+        //Use it to also quickly play around with coroutines
+
+
     }
 
 }
