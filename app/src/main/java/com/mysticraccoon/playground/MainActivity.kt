@@ -15,42 +15,35 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        //our first coroutine
-
-        //launch is a coroutine builder. It launches a new coroutine concurrently with the rest of the code, which continues to work independently.
-        //the launch builder CANNOT be called outside a CoroutineScope
-
-
-        //this coroutine will live as long as our application live
-        //if the coroutine finishes it job before the application is killed then it is all good
-        //but if the coroutine still have instructions to execute and the app is killed this will generate a problem
         GlobalScope.launch {
-            //will be started on a separate thread
-            Log.d(TAG, "Coroutine says 1 hello from thread ${Thread.currentThread().name}" )
+            delay(1000L)
+            //delay is a suspend function
+            //They can only be executed inside another suspend function or inside a coroutine
         }
+        //Throws error
+        //delay(1000L)
 
-        Log.d(TAG, "Hello from thread ${Thread.currentThread().name}" )
+        //Error
+        //doNetworkCall()
 
-        //================================================================
-
-        //Delay is kind of a sleep function for coroutines
         GlobalScope.launch {
-            //Delay works different from a thread sleep because it will only pause the current coroutine and not pause the whole thread
-            delay(3000)
-            Log.d(TAG, "Coroutine says 2 hello from thread ${Thread.currentThread().name}" )
+            val networkCallAnswer = doNetworkCall()
+            val networkCallAnswer2 = doNetworkCall2()
+            Log.d(TAG, networkCallAnswer)
+            Log.d(TAG, networkCallAnswer2)
+            //Because these two delays were inside the same coroutine, they will influence each other
+            //In the end, this code will take 6 seconds to print the string instead of only 3
         }
+    }
 
-        Log.d(TAG, "Hello from thread ${Thread.currentThread().name}" )
+    suspend fun doNetworkCall(): String{
+        delay(3000L)
+        return "This is the answer"
+    }
 
-        //If MAIN thread finishes their work, ALL other threads and coroutines will be canceled
-        //Even if started on another thread
-        //We can check that by increasing delay on the example above. If we destroy app before the delay ends, the print will not be displayed
-        GlobalScope.launch {
-            //Delay works different from a thread sleep because it will only pause the current coroutine and not pause the whole thread
-            delay(5000)
-            Log.d(TAG, "Coroutine says 3 hello from thread ${Thread.currentThread().name}" )
-        }
-
+    suspend fun doNetworkCall2(): String{
+        delay(3000L)
+        return "This is the answer 2"
     }
 
 
